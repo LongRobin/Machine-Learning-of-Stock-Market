@@ -60,8 +60,8 @@ config = {
     'password': 'test123',
     'rootpath': 'C:\cStrategy',  # 客户端所在路径
     'initCapitalStock': 10000000,  # 初始资金
-    'startDate': 20120101,      # 交易开始日期
-    'endDate': 20170101,        # 交易结束日期
+    'startDate': 20170101,      # 交易开始日期
+    'endDate': 20170901,        # 交易结束日期
     'cycle': QuoteCycle.D,      # 回测粒度为日线
     'strategyName': 'gcForest',    # 策略名
     'stockFeeRate': 0.0015,      # 手续费率
@@ -588,6 +588,10 @@ def strategy(sdk):
             print i
             print len(train_set)
             print len(train_lab)
+            print sdk.getNowDate()
+            imp = Imputer(missing_values='NaN', strategy='mean', axis=0)  
+            train_set = np.array(train_set)
+            imp.fit(train_set)
             #model= RandomForestClassifier(n_estimators=10,oob_score=True)
             model = gcForest(shape_1X=4, window = 2, tolerance=0.0)
             model.fit(train_set, train_lab)
@@ -724,6 +728,15 @@ def main():
     config['strategy'] = strategy
     config['preparePerDay'] = initPerDay
     # 启动SDK
+    t0 = time.time()
+    SDKCoreEngine(**config).run()
+    t1 = time.time()
+    print "start from", time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(t0)), ", end in", time.strftime(
+        '%Y-%m-%d %H:%M:%S', time.localtime(t1)), ". total time took", t1 - t0, " seconds"
+
+
+if __name__ == "__main__":
+    main()
     t0 = time.time()
     SDKCoreEngine(**config).run()
     t1 = time.time()
