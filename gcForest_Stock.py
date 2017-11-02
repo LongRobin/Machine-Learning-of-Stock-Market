@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 """
+Created on Thu Nov 02 10:18:35 2017
+
+@author: Administrator
+"""
+
+# -*- coding: utf-8 -*-
+"""
 Created on Fri Oct 27 10:06:08 2017
 
 @author: Administrator
@@ -60,10 +67,10 @@ config = {
     'password': 'test123',
     'rootpath': 'C:\cStrategy',  # 客户端所在路径
     'initCapitalStock': 10000000,  # 初始资金
-    'startDate': 20120101,      # 交易开始日期
-    'endDate': 20170101,        # 交易结束日期
+    'startDate': 20170101,      # 交易开始日期
+    'endDate': 20171001,        # 交易结束日期
     'cycle': QuoteCycle.D,      # 回测粒度为日线
-    'strategyName': 'gcForest',    # 策略名
+    'strategyName': 'DateTest',    # 策略名
     'stockFeeRate': 0.0015,      # 手续费率
     'logfile': 'Test.log',     # 在策略中调用log方法所生成的日志文件名
     'strategyID': '123456',
@@ -294,6 +301,10 @@ def sellStockList(sdk, stockToSellList, quotes):
 def initial(sdk):       # 写整个回测前要做的操作
     if sdk.getGlobal('TRADEDATEFLAG') == None:
         sdk.setGlobal('TRADEDATEFLAG', -1)
+    if sdk.getGlobal('TRADELASTDATE') == None:
+        sdk.setGlobal('TRADELASTDATE',sdk.getNowDate())
+    if sdk.getGlobal('Figure') == None:    
+        sdk.setGlobal('FIGURE',True)
     print 'initial Done!'
 
 '''initPerDay(sdk): 在分钟线回测时，每日策略执行之前会运行的方法。可以在其中添加只会每日需要准备的部分，例如
@@ -380,346 +391,24 @@ def strategy(sdk):
     ###################
     #    股票策略     #
     ###################
+    tradeNowDate = sdk.getNowDate()
+    tradeLastDate = sdk.getGlobal('TRADELASTDATE') 
     tradeDateFlag = sdk.getGlobal('TRADEDATEFLAG')
-    tradeDateFlag += 1
-    sdk.setGlobal('TRADEDATEFLAG', tradeDateFlag)       
+    Figure = sdk.getGlobal("FIGURE")
+    if tradeNowDate!=tradeLastDate:
+        tradeDateFlag += 1
+        sdk.setGlobal('TRADEDATEFLAG', tradeDateFlag) 
+        sdk.setGlobal('TRADELASTDATE',tradeNowDate)
+        sdk.setGlobal('FIGURE',True)
     
 
-    if tradeDateFlag % HOLDINGPERIOD == 0 :
-
-        stockList = sdk.getStockList()
-        stop = sdk.getFactorData("LZ_CN_STKA_QUOTE_TCLOSE")[-1]     # 获取最近的收盘价因子矩阵
-        
-        
-        profit = np.array(sdk.getFactorData("LZ_CN_STKA_FIN_IND_EBITPS")[-21])###息税前利润
-        data_in = Factors(sdk,-21)
-        stop_1 = data_in[-4-29]
-        stop = data_in[-3-29]
-
-        
-        industry_new = sdk.getFactorData("LZ_CN_STKA_INDU_ZX")[-1]
-     #   dtl = SMB
-     #   lyst = [i for i in range(0,len(SMB)) if SMB[i]>np.median(SMB)+5*np.std(SMB)] 
-     #   dtl[lyst] = np.median(SMB)+5*np.std(SMB) 
-     #   lyst = [i for i in range(0,len(SMB)) if SMB[i]<np.median(SMB)-5*np.std(SMB)] 
-     #   dtl[lyst] = np.median(SMB)-5*np.std(SMB) 
-     #   lyst = [i for i in range(0,len(SMB)) if pd.isnull(SMB[i])==True] 
-     #   dtl[lyst] = mean_data[industry_new[lyst]]
-     #   SMB = dtl
-        
-
-        
-
-            
-        data_mat=Factors(sdk,-21)
-        #data_mat.append(np.array(sdk.getFactorData("LZ_CN_STKA_VAL_A_TCAP")[-21]))
-        #data_mat.append(industry_new)
-        
-        
-        for i in range(0,len(data_mat)-30):
-            sum_data = [float(0) for ii in range(0,30)]
-            num_data = [float(0) for ii in range(0,30)]
-            whole_sum = 0
-            whole_num = 0
-            for j in range(0,len(data_mat[i])):
-                if not pd.isnull(data_mat[i][j]) and data_mat[i][j]<1.0e+20 and data_mat[i][j]>0.001:
-                    sum_data[int(industry_new[j])] += data_mat[i][j]
-                    num_data[int(industry_new[j])] += 1 
-                    whole_sum += data_mat[i][j]
-                    whole_num += 1
-            if whole_num == 0:
-                whole_num +=1
-            mean_data = np.array(sum_data)/np.array(num_data)
-            for j in range(0,len(mean_data)):
-                if pd.isnull(mean_data[j]):
-                    mean_data[j] = whole_sum/whole_num
-            for j in range(0,len(data_mat[i])):
-                if pd.isnull(data_mat[i][j]) or data_mat[i][j]>1.0e+20 or data_mat[i][j]<0.001:
-                    data_mat[i][j] = mean_data[int(industry_new[j])]
-            median = np.median(data_mat[i])
-            sd = np.std(data_mat[i])
-            for j in range(0,len(data_mat[i])):
-                if data_mat[i][j]>median+5*sd:
-                    data_mat[i][j] = median+5*sd
-                if data_mat[i][j]<median-5*sd:
-                    data_mat[i][j] = median-5*sd
-        
-
-        XX = []
-        X = data_mat[-2-29]
-        for j in range(0,len(X)):
-            X[j] = math.log(X[j])
-           # print X[j]
-        XX.append(X)
-        #XX.append(data_mat[-1])
-        for i in range(0,30):
-            XX.append(data_mat[-i-1])        
-        X = XX
-        data_mat = data_mat[:10]
-        X = np.transpose(X)
+    if tradeDateFlag % HOLDINGPERIOD == 0 and Figure :
+        Figure = False
+        sdk.setGlobal('FIGURE',Figure)
+        print sdk.getNowDate()
 
 
 
-        for i in range(0,len(data_mat)):    
-            lm = linear_model.LinearRegression()
-            lm.fit(X, data_mat[i])
-            data_mat[i] = data_mat[i]-lm.predict(X)
-            data_mat[i] = data_mat[i]/len(data_mat[i])
-            ##归一化处理
-            mat_max = max(data_mat[i])
-            mat_min = min(data_mat[i])
-            for j in range(0,len(data_mat[i])):
-                data_mat[i][j] = (data_mat[i][j]-mat_min)/(mat_max-mat_min)
-            #print data_mat[i]
-            
-            
-        data_mat = np.transpose(data_mat)
-        new_data_mat = []
-        label = []
-        profit = np.array(stop)/np.array(stop_1)-1
-        profit1 = [i for i in profit if not pd.isnull(i)]
-        for i in range(0,len(stop_1)):
-            if  profit[i]> np.percentile(profit1,70) :
-                label.append(1)
-                new_data_mat.append(data_mat[i])
-                continue
-            if profit[i]<= np.percentile(profit1,30):
-                label.append(0)
-                new_data_mat.append(data_mat[i])
-                continue
-
-        
-        data_mat = new_data_mat    
-        sequ = range(0,len(data_mat))
-        
-        random.shuffle(sequ)
-        data_mat_t = []
-        label_t = []
-        for i in sequ:
-            data_mat_t.append(data_mat[i])
-            label_t.append(label[i])
-        data_mat = data_mat_t
-        label = label_t
-
-        
-        
-        
-        
-        
-
-        
-        
-        
-
-        
-        
-        
-        data_new=Factors(sdk,-1)
-        #data_new.append(np.array(sdk.getFactorData("LZ_CN_STKA_VAL_A_TCAP")[-1]))
-        #data_new.append(industry_new)
-        industry_new = sdk.getFactorData("LZ_CN_STKA_INDU_ZX")[-1]
-        
-        for i in range(0,len(data_new)-30):
-            sum_data = [0 for ii in range(0,30)]
-            num_data = [0 for ii in range(0,30)]
-            whole_sum = 0
-            whole_num = 0
-            for j in range(0,len(data_new[i])):
-                if not pd.isnull(data_new[i][j]) and data_new[i][j]<1.0e+20 and data_new[i][j]>0.001:
-                    sum_data[int(industry_new[j])] += data_new[i][j]
-                    num_data[int(industry_new[j])] += 1 
-                    whole_sum += data_new[i][j]
-                    whole_num += 1
-            if whole_num == 0:
-                whole_num +=1            
-            mean_data = np.array(sum_data)/np.array(num_data)
-            for j in range(0,len(mean_data)):
-                if pd.isnull(mean_data[j]):
-                    mean_data[j] = whole_sum/whole_num
-            for j in range(0,len(data_new[i])):
-                if pd.isnull(data_new[i][j]) or data_new[i][j]>1.0e+20 or data_new[i][j]<0.001:
-                    data_new[i][j] = mean_data[int(industry_new[j])]
-            median = np.median(data_new[i])
-            sd = np.std(data_new[i])
-            for j in range(0,len(data_new[i])):
-                if data_new[i][j]>median+5*sd:
-                    data_new[i][j] = median+5*sd
-                if data_new[i][j]<median-5*sd:
-                    data_new[i][j] = median-5*sd
-        XX = []
-        X = data_new[-2-29]
-        for j in range(0,len(X)):
-            X[j] = math.log(X[j])
-           # print X[j]
-        XX.append(X)
-        for i in range(0,30):
-            XX.append(data_new[-i-1])
-        X = XX
-        data_new = data_new[:10]
-        X = np.transpose(X)
-
-
-        for i in range(0,len(data_new)):    
-            lm = linear_model.LinearRegression()
-            lm.fit(X, data_new[i])
-            data_new[i] = data_new[i]-lm.predict(X)
-            data_new[i] = data_new[i]/len(data_new[i])
-            ##归一化处理
-            new_max = max(data_new[i])
-            new_min = min(data_new[i])
-            for j in range(0,len(data_new[i])):
-                data_new[i][j] = (data_new[i][j]-new_min)/(new_max-new_min)
-            #print data_new[i]
-        
-        data_new = np.transpose(data_new)
-        
-        finger = 10
-        ll = len(data_mat)
-        ll = ll/finger
-        max_rate = 0
-        k = 0
-        for i in range(0,10):
-            test_set = data_mat[ll*i:ll*(i+1)]
-            test_lab = label[ll*i:ll*(i+1)]
-            train_set = data_mat[:ll*i]+data_mat[ll*(i+1):]
-            train_lab = label[:ll*i]+label[ll*(i+1):]
-            train_lab = np.array(train_lab).tolist()
-            train_set = np.array(train_set).tolist()
-            print i
-            #print len(train_set)
-            #print len(train_lab)
-            print sdk.getNowDate()
-            #print train_set
-            #print train_lab
-            imp = Imputer(missing_values='NaN', strategy='mean', axis=0)  
-            train_set = np.array(train_set)
-            imp.fit(train_set)
-            #model= RandomForestClassifier(n_estimators=10,oob_score=True)
-            model = gcForest(shape_1X=10, window = 2, tolerance=0.0)
-            model.fit(train_set, train_lab)
-            predicted = model.predict(test_set)
-            accuracy = accuracy_score(y_true=test_lab, y_pred=predicted) #用 test 数据的真实类别和预测类别算准确率
-            print ('gcForest accuracy:{}'.format(accuracy))
-            #auc = metrics.roc_auc_score(test_lab,predicted)
-            #print "OOB Score：%f" % score
-            #print "AUC Score: %f" % auc
-            #error = 0
-            #for j in range(0,len(test_set)):
-            #    if predicted[j] != test_lab[j]:
-            #        error +=1
-            #err_rate = float(error)/float(len(test_set))
-            #if err_rate< min_rate:
-            #    min_rate = err_rate
-            #    k = i
-            if accuracy > max_rate:
-                max_rate = accuracy
-                k = i
-        
-        
-        
-        
-        
-        
-        i = k
-        train_set = data_mat[:ll*i]+data_mat[ll*(i+1):]
-        train_lab = label[:ll*i]+label[ll*(i+1):]
-        print "Optimized OOB Score: %f \n" %max_rate
-
-            
-        model= gcForest(shape_1X=10, window = 2, tolerance=0.0)
-        model.fit(train_set, train_lab)
-        predicted= model.predict(data_new)
-
-        
-
-        # Create Random Forest object
-        #model= RandomForestClassifier(n_estimators=10)
-        # Train the model using the training sets and check score
-        #model.fit(data_mat, label)
-        #Predict Output
-        #predicted= model.predict(data_new)
-        
-        
-        WholeDict=dict(zip(stockList,predicted))
-
-        
-        stockToBuy = []
-        buy_sq=[]
-        stockToSell = []
-        
-        for key in WholeDict.keys():
-            if WholeDict[key]==1: 
-                stockToBuy.append(key)
-                buy_sq.append(WholeDict[key])
-            if WholeDict[key]!=1: 
-                stockToSell.append(key)
-
-        buyDict=dict(zip(stockToBuy,buy_sq))
-        buyDict_Sorted=sorted(buyDict.items(),key=lambda asd: asd[1],reverse=True)
-        
-        stockToBuy = []
-
-        
-        for i in range(0,len(buyDict_Sorted)):
-            stockToBuy.append(buyDict_Sorted[i][0])
-        
-        
-        
-        #Date = sdk.getNowDate()       
-        #sell_plan[Date] = stockToBuy
-        
-        #ii=0
-        #selldate=''
-        #for key in sell_plan.keys():
-        #    d1 = datetime.datetime.strptime(key, '%Y%m%d')
-        #    d2 = datetime.datetime.strptime(Date, '%Y%m%d')
-        #    if d2-d1==10:
-        #        ii=1
-        #        buydate=key
-        
-        
-        
-           
-        #if ii==1 :
-        #    for i in range(0,len(sell_plan[buydate])):
-        #        stockToSell.append(sell_plan[buydate][i])
-        
-        stockToBuy = stockToBuy[:HOLDINGNUMBER]
-        # 更新持仓,卖出股票池锁定
-        stockToSell = getPositionList(sdk)     
-        #stockToSell1 = getPositionList(sdk)   
-        #stockToSell = [val for val in stockToSell1 if val in stockToSell]
-        # 卖出股票
-        quotes = sdk.getQuotes(stockToSell)
-        stockToSell = list(set(stockToSell) & set(quotes.keys()))       # 列出要卖出的股票代码和相应的可卖持仓
-        
-   #     print tradeDateFlag
-   #     print stockToBuy
-   #     print stockToSell
-   #     print "\n"
-
-
-
-
-        if stockToSell != []:
-            pass
-
-        bar = {}
-        for s in stockToSell:
-            bar[s] = quotes[s].open
-        position = getPositionDict(sdk)
-        if stockToSell != []:
-            sellStockList(sdk, stockToSell, bar)        # 以开盘价卖出股票
-        # 更新持仓
-        stockPositionList = getPositionList(sdk)
-        # 买入股票池锁定
-        quotes = sdk.getQuotes(stockToBuy)      # 获取股票列表的盘口信息
-        stockToBuy = list(set(stockToBuy) & set(quotes.keys()))     # 列出要买入的股票代码和相应的可卖持仓
-        bar = {}
-        for s in stockToBuy:
-            bar[s] = quotes[s].open
-        position = getPositionDict(sdk)
-        buyStockList(sdk, stockToBuy, bar)      # 以开盘价买入股票
 
 
 '''time():time模块包含的函数能实现以下功能，获取当地时间、操作时间和日期、从字符串读取时间以及格式化时间为字
@@ -730,56 +419,6 @@ def main():
     config['strategy'] = strategy
     config['preparePerDay'] = initPerDay
     # 启动SDK
-    t0 = time.time()
-    SDKCoreEngine(**config).run()
-    t1 = time.time()
-    print "start from", time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(t0)), ", end in", time.strftime(
-        '%Y-%m-%d %H:%M:%S', time.localtime(t1)), ". total time took", t1 - t0, " seconds"
-
-
-if __name__ == "__main__":
-    main()
-
-
-
-        if stockToSell != []:
-            pass
-
-        bar = {}
-        for s in stockToSell:
-            bar[s] = quotes[s].open
-        position = getPositionDict(sdk)
-        if stockToSell != []:
-            sellStockList(sdk, stockToSell, bar)        # 以开盘价卖出股票
-        # 更新持仓
-        stockPositionList = getPositionList(sdk)
-        # 买入股票池锁定
-        quotes = sdk.getQuotes(stockToBuy)      # 获取股票列表的盘口信息
-        stockToBuy = list(set(stockToBuy) & set(quotes.keys()))     # 列出要买入的股票代码和相应的可卖持仓
-        bar = {}
-        for s in stockToBuy:
-            bar[s] = quotes[s].open
-        position = getPositionDict(sdk)
-        buyStockList(sdk, stockToBuy, bar)      # 以开盘价买入股票
-
-
-'''time():time模块包含的函数能实现以下功能，获取当地时间、操作时间和日期、从字符串读取时间以及格式化时间为字
-            符串。'''
-def main():
-    # 将策略函数加入
-    config['initial'] = initial
-    config['strategy'] = strategy
-    config['preparePerDay'] = initPerDay
-    # 启动SDK
-    t0 = time.time()
-    SDKCoreEngine(**config).run()
-    t1 = time.time()
-    print "start from", time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(t0)), ", end in", time.strftime(
-        '%Y-%m-%d %H:%M:%S', time.localtime(t1)), ". total time took", t1 - t0, " seconds"
-
-
-if __name__ == "__main__":
-    main()
     t0 = time.time()
     SDKCoreEngine(**config).run()
     t1 = time.time()
